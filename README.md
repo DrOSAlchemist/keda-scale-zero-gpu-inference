@@ -28,9 +28,9 @@ Requires Python 3.12+, Docker with a running daemon, and a reachable OpenAI-comp
 
 ```bash
 uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -r requirements.txt
+uv pip install --python .venv/bin/python -r gateway/requirements.txt -r worker/requirements.txt
 docker run -d --name inference-redis -p 6379:6379 redis:7.4 --appendonly yes
-.venv/bin/uvicorn gateway:app --host 127.0.0.1 --port 8080
+.venv/bin/uvicorn gateway.gateway:app --host 127.0.0.1 --port 8080
 ```
 
 In a second terminal, run the worker with a reachable inference endpoint:
@@ -90,7 +90,7 @@ The Job needs network access to Hugging Face and a writable 10 Gi volume. If it 
 Build and publish two application images, replace the gateway and worker image placeholders in their respective Deployments with accessible tags, then apply. The guarded GKE script above does this automatically with Artifact Registry:
 
 ```bash
-docker build -t ghcr.io/YOUR_ORG/scale-zero-gateway:YOUR_TAG .
+docker build -t ghcr.io/YOUR_ORG/scale-zero-gateway:YOUR_TAG gateway/
 docker build -t ghcr.io/YOUR_ORG/scale-zero-worker:YOUR_TAG worker/
 docker push ghcr.io/YOUR_ORG/scale-zero-gateway:YOUR_TAG
 docker push ghcr.io/YOUR_ORG/scale-zero-worker:YOUR_TAG

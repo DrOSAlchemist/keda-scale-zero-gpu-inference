@@ -4,8 +4,8 @@ This is the DrOSAlchemist queue-driven GPU inference example. Keep the implement
 
 ## System Boundary
 
-- `gateway.py`: FastAPI accepts a nonempty prompt at `POST /generate`, stores a job in Redis, and returns HTTP 202 with a `job_id`. `GET /result/{job_id}` polls for `pending`, `done`, or `error`; `GET /health` checks Redis. `/metrics` exports bounded route/status counters and each queued job carries its admission timestamp.
-- `worker/worker.py`: moves jobs from `inference-jobs` to `inference-processing`, calls vLLM's `/v1/completions`, stores results for 300 seconds, and acknowledges work. Failed inference returns an error result. A failed Redis write leaves the item in the processing list for recovery. Its Dockerfile and dependencies live alongside it; the root Dockerfile builds the gateway. Its port 9100 exports outcomes and queue-to-result duration after acknowledgment.
+- `gateway/gateway.py`: FastAPI accepts a nonempty prompt at `POST /generate`, stores a job in Redis, and returns HTTP 202 with a `job_id`. `GET /result/{job_id}` polls for `pending`, `done`, or `error`; `GET /health` checks Redis. `/metrics` exports bounded route/status counters and each queued job carries its admission timestamp. Its Dockerfile and requirements live alongside it.
+- `worker/worker.py`: moves jobs from `inference-jobs` to `inference-processing`, calls vLLM's `/v1/completions`, stores results for 300 seconds, and acknowledges work. Failed inference returns an error result. A failed Redis write leaves the item in the processing list for recovery. Its Dockerfile and dependencies live alongside it. Its port 9100 exports outcomes and queue-to-result duration after acknowledgment.
 - `k8s/`: the Kustomize base deploys the always-on gateway, Redis with an AOF-backed PVC, Redis exporter, model-cache PVC, and KEDA-scaled CPU worker and GPU vLLM pod. Render it with `kubectl kustomize k8s/` and apply it with `kubectl apply -k k8s/`. The GKE node pool is **not** created by Kubernetes manifests.
 - `monitoring/`: Prometheus values and a 17-panel Grafana dashboard. The NVIDIA DCGM exporter is opt-in; see the README before installing one on GKE, which may already collect DCGM metrics. A scaled-to-zero worker or vLLM intentionally has no live scrape target.
 - `scripts/`: guarded GKE deployment/teardown and an event/log/queue-based cold-warm-full-zero capture. Raw captures under `data/` are ignored by Git.
@@ -28,7 +28,7 @@ No live GKE full-cycle benchmark or cold-start improvement has been established 
 
 ## Workflows And Verification
 
-1. Local tests: `PYTHONPATH=. .venv/bin/python -m unittest discover -s tests -v`. Python 3.12+ and the dependencies in `requirements.txt` plus `httpx` are required.
+1. Local tests: `PYTHONPATH=. .venv/bin/python -m unittest discover -s tests -v`. Python 3.12+ and both component requirements files plus `httpx` are required.
 2. Before changing manifests, parse all YAML documents and check KEDA resource names, queue keys, GPU requests, namespace DNS, and PVC mounts. Run `bash -n scripts/*.sh` after shell edits. Use `git diff --check` before publishing.
 3. The cloud scripts require explicit `PROJECT_ID` and `CONFIRM_BILLING=yes` or `CONFIRM_DELETE=<cluster>`. Never run or relax those guards as part of a local code check. GKE, Docker/GPU inference, DCGM collection, and cold-start performance need a real cluster to validate.
 4. If code changes affect queue semantics, update both the focused tests and README architecture diagram. Keep the project on the existing FastAPI + Redis + KEDA + vLLM path unless a change has a clear, tested reason.

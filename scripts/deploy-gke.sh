@@ -33,7 +33,7 @@ if ! gcloud artifacts repositories describe "$REGISTRY" --project "$PROJECT_ID" 
   gcloud artifacts repositories create "$REGISTRY" --project "$PROJECT_ID" --location "$REGION" --repository-format docker
 fi
 gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-docker build -t "$GATEWAY_IMAGE" .
+docker build -t "$GATEWAY_IMAGE" gateway/
 docker build -t "$WORKER_IMAGE" worker/
 docker push "$GATEWAY_IMAGE"
 docker push "$WORKER_IMAGE"

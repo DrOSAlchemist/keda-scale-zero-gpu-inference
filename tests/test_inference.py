@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import redis
 from fastapi.testclient import TestClient
 
-import gateway
+from gateway import gateway
 from worker import worker
 
 
