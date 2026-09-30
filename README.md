@@ -1,6 +1,6 @@
 # KEDA Scale-to-Zero GPU Inference
 
-An asynchronous inference example: the gateway accepts a prompt and returns a job ID, Redis buffers it, a CPU worker sends it to vLLM, and the result can be polled. KEDA watches both queued and in-flight jobs to scale the worker and GPU-backed vLLM Deployment from zero. A **separately configured** Kubernetes node autoscaler must provision and retire GPU nodes. This repository has not been benchmarked on GKE; timings and cost estimates from other projects are not measurements of this implementation.
+An asynchronous inference example: the gateway accepts a prompt and returns a job ID, Redis buffers it, a CPU worker sends it to vLLM, and the result can be polled. KEDA watches both queued and in-flight jobs to scale the worker and GPU-backed vLLM Deployment from zero. A **separately configured** Kubernetes node autoscaler must provision and retire GPU nodes. The dated GKE cold-start benchmark is documented in [docs/cold-start-optimization.md](docs/cold-start-optimization.md); it is specific to the recorded T4 Spot run and is not a guarantee for other environments.
 
 Maintainers: [project architecture and verification rules](CLAUDE.md).
 
@@ -159,7 +159,9 @@ kubectl get pods -n gpu-monitoring -l app.kubernetes.io/name=dcgm-exporter
 
 The values constrain exporter pods to T4 GPU nodes and disable its ServiceMonitor; `monitoring/prometheus-values.yaml` discovers those pods on port 9400 instead. When the GPU pool is zero, the exporter also has zero pods and the four GPU panels have no data. After a GPU node appears, verify the exporter endpoint contains `DCGM_FI_DEV_GPU_UTIL`, `DCGM_FI_DEV_POWER_USAGE`, `DCGM_FI_DEV_FB_USED` and `DCGM_FI_DEV_GPU_TEMP`, then check Prometheus target health. No GPU exporter or dashboard data was tested on a live cluster here. The example chart retains metrics for 24 hours in ephemeral storage; use durable remote storage for long-running monitoring. Dashboard panels are configuration, not a measured screenshot or event annotation.
 
-The model PVC avoids downloading weights after the first successful start, but the large vLLM image must still be pulled on a new GPU node. For an **optional** image-cache comparison, follow [Google's Secondary Boot Disk guide](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/data-container-image-preloading) to build a disk image containing the exact `vllm/vllm-openai:v0.10.2` image. The official builder needs a log bucket, Compute Engine API, compatible COS/GKE version, disk-image permissions and a sized disk. Building the image incurs charges and is not automated here. Once the image exists in the same GCP project, attach it to a dedicated 0-1 GPU pool:
+The model PVC avoids downloading weights after the first successful start, but the large vLLM image must still be pulled on a new GPU node. The recorded T4 Spot benchmark used a GKE Secondary Boot Disk and reduced queue-spike-to-first-token time from 659 seconds to 338 seconds. See [docs/cold-start-optimization.md](docs/cold-start-optimization.md) for the phase breakdown, historical L4 context and measurement caveats.
+
+For a repeatable image-cache comparison, follow [Google's Secondary Boot Disk guide](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/data-container-image-preloading) to build a disk image containing the exact `vllm/vllm-openai:v0.10.2` image. The official builder needs a log bucket, Compute Engine API, compatible COS/GKE version, disk-image permissions and a sized disk. Building the image incurs charges and is not automated here. Once the image exists in the same GCP project, attach it to a dedicated 0-1 GPU pool:
 
 ```bash
 PROJECT_ID=YOUR_PROJECT DISK_IMAGE=your-vllm-cache CONFIRM_BILLING=yes bash scripts/deploy-gke.sh

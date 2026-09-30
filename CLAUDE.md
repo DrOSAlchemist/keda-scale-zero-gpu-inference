@@ -24,7 +24,7 @@ Run the phases separately: an unseeded model cache, the optional PVC seed Job in
 
 Use `scripts/full-cycle-run.sh` only after confirming zero worker/vLLM replicas and zero nodes in the selected GPU pool. Capture queue arrival, pod scheduling, GPU node creation, image pull, vLLM readiness, cold/warm completion, pod cooldown, and node removal. Compare runs with the same model, workload, zone, GPU and PVC state. Spot eviction is a confounder and should be reported, not hidden.
 
-No live GKE full-cycle benchmark or cold-start improvement has been established in this repository. Do not publish the reference project's timings, throughput, prices, uptime, dashboard screenshot, or Spot recovery event as results of this project. An empty dashboard panel is not evidence of a measured zero; verify scrape targets and exporter availability first.
+The dated GKE cold-start benchmark is recorded in `docs/cold-start-optimization.md`: a T4 Spot run in `us-east1-d` improved from 659 seconds to 338 seconds using a persistent model cache and Secondary Boot Disk. Keep that result scoped to the recorded hardware, zone, image and workload. Do not generalize it to other regions or configurations, and do not publish PV-only timings, throughput, prices, uptime, dashboard screenshots, DCGM measurements or Spot recovery behavior unless each has its own evidence. An empty dashboard panel is not evidence of a measured zero; verify scrape targets and exporter availability first.
 
 ## Workflows And Verification
 
