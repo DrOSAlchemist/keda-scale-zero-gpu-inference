@@ -11,6 +11,7 @@ spec:
       containers:
         - name: worker
           image: ghcr.io/your-org/scale-zero-worker:latest
+          ports: [{name: metrics, containerPort: 9100}]
           env:
             - {name: REDIS_URL, value: "redis://redis:6379"}
             - {name: VLLM_URL, value: "http://vllm:8000/v1/completions"}

@@ -1,4 +1,5 @@
 fastapi>=0.115,<1
 pydantic>=2,<3
+prometheus-client>=0.20,<1
 redis>=5,<8
 uvicorn>=0.30,<1

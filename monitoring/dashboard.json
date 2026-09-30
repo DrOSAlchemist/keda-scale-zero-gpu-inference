@@ -73,6 +73,36 @@
       "gridPos": {"x": 18, "y": 14, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "fieldConfig": {"defaults": {"unit": "s"}},
       "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A"}]
+    },
+    {
+      "id": 13, "type": "timeseries", "title": "Accepted prompts / second",
+      "gridPos": {"x": 0, "y": 21, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "targets": [{"expr": "sum(rate(gateway_http_requests_total{path=\"/generate\",status=\"202\"}[5m]))", "legendFormat": "accepted", "refId": "A"}]
+    },
+    {
+      "id": 14, "type": "timeseries", "title": "Gateway HTTP errors / second",
+      "gridPos": {"x": 6, "y": 21, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "targets": [{"expr": "sum by (status) (rate(gateway_http_requests_total{status=~\"4..|5..\"}[5m]))", "legendFormat": "HTTP {{status}}", "refId": "A"}]
+    },
+    {
+      "id": 15, "type": "timeseries", "title": "Inference results / second",
+      "gridPos": {"x": 12, "y": 21, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "targets": [{"expr": "sum by (status) (rate(inference_jobs_total{status=~\"done|error\"}[5m]))", "legendFormat": "{{status}}", "refId": "A"}]
+    },
+    {
+      "id": 16, "type": "timeseries", "title": "Queue to stored result / p95",
+      "gridPos": {"x": 18, "y": 21, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(inference_job_duration_seconds_bucket{status=\"done\"}[5m])))", "legendFormat": "p95", "refId": "A"}]
+    },
+    {
+      "id": 17, "type": "timeseries", "title": "Scrape health / 0 expected when pods scale to zero",
+      "gridPos": {"x": 0, "y": 28, "w": 12, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"min": 0, "max": 1}},
+      "targets": [{"expr": "up{job=~\"gateway|redis-queue|worker|vllm\"}", "legendFormat": "{{job}}", "refId": "A"}]
     }
   ]
 }

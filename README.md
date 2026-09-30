@@ -130,7 +130,7 @@ The script writes namespace events, pod and node watch output, worker and vLLM l
 
 ## Metrics And Cold Starts
 
-The Redis exporter exposes queue key sizes on port 9121; vLLM exposes its built-in Prometheus endpoint on port 8000. With the Prometheus Operator installed, an example kube-prometheus-stack configuration is provided:
+The Redis exporter exposes queue key sizes on port 9121; vLLM exposes its built-in Prometheus endpoint on port 8000. The gateway exposes `/metrics` on port 8080; the worker serves `/metrics` on port 9100 when scaled above zero. With the Prometheus Operator installed, an example kube-prometheus-stack configuration is provided:
 
 ```bash
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -143,7 +143,7 @@ kubectl -n monitoring label configmap inference-dashboard grafana_dashboard=1 --
 kubectl port-forward -n monitoring service/monitoring-grafana 3000:80
 ```
 
-The 12-panel dashboard shows Redis waiting/in-flight jobs, pod replicas, allocatable GPUs, GPU utilization/power/memory/temperature, vLLM completions and token rates, and p95 time to first token. It selects the chart's Prometheus datasource at runtime. Redis queue metrics use fixed-key lookups, so a nonexistent queue key may be absent between runs; the dashboard renders it as zero. kube-state-metrics comes from kube-prometheus-stack.
+The 17-panel dashboard shows Redis waiting/in-flight jobs, pod replicas, allocatable GPUs, GPU utilization/power/memory/temperature, vLLM completions and token rates, p95 time to first token, accepted prompts, HTTP errors, inference outcomes, p95 queue-to-stored-result latency, and scrape health. It selects the chart's Prometheus datasource at runtime. `gateway_http_requests_total` labels route templates and status codes, not individual job IDs; HTTP 4xx/5xx are distinct from `inference_jobs_total{status="error"}`. `inference_job_duration_seconds` is observed only after Redis stores and acknowledges a result. Its clock starts at gateway admission, so it includes queueing and model startup; vLLM TTFT measures a different interval. Older jobs without an admission timestamp have no end-to-end histogram observation. Redis queue metrics use fixed-key lookups, so a nonexistent queue key may be absent between runs; the dashboard renders it as zero. kube-state-metrics comes from kube-prometheus-stack. In the scrape-health panel, `worker` and `vllm` targets at zero are expected when those pods have scaled to zero; gateway and Redis targets should remain up.
 
 The four GPU panels require DCGM data in **this chart's Prometheus datasource**. Newer GKE clusters may already provide [GKE-managed DCGM collection](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/dcgm-metrics) in Cloud Monitoring. Check that first; do not install another exporter on top of it, since duplicate collection can produce incorrect metrics. To use the GKE-managed data, configure Grafana with a datasource that can query Cloud Monitoring instead of the local Prometheus datasource used by this example.
 

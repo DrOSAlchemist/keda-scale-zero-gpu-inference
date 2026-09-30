@@ -23,6 +23,8 @@ class GatewayTests(unittest.TestCase):
         redis_client.pipeline.return_value.__enter__.return_value.lpush.assert_called_once()
         queued = redis_client.pipeline.return_value.__enter__.return_value.lpush.call_args.args[1]
         self.assertEqual(json.loads(queued)["job_id"], job_id)
+        self.assertIsInstance(json.loads(queued)["queued_at"], float)
+        self.assertIn('gateway_http_requests_total{path="/generate",status="202"}', self.client.get("/metrics").text)
 
         redis_client.get.return_value = None
         redis_client.exists.return_value = 1
@@ -33,6 +35,15 @@ class GatewayTests(unittest.TestCase):
     def test_rejects_empty_prompt_and_unknown_job(self):
         self.assertEqual(self.client.post("/generate", json={"prompt": ""}).status_code, 422)
         self.assertEqual(self.client.get("/result/not-a-job").status_code, 404)
+
+    def test_gateway_metrics_bound_paths_and_statuses(self):
+        self.client.post("/generate", json={"prompt": ""})
+        self.client.get("/result/not-a-job")
+        metrics = self.client.get("/metrics")
+        self.assertEqual(metrics.status_code, 200)
+        self.assertIn('gateway_http_requests_total{path="/generate",status="422"}', metrics.text)
+        self.assertIn('gateway_http_requests_total{path="/result/{job_id}",status="404"}', metrics.text)
+        self.assertNotIn('path="/metrics"', metrics.text)
 
 
 class WorkerTests(unittest.TestCase):
@@ -100,6 +111,27 @@ class WorkerTests(unittest.TestCase):
         result = json.loads(client.pipeline.return_value.__enter__.return_value.setex.call_args.args[2])
         self.assertEqual(result, {"status": "error", "error": "invalid completion"})
 
+    @patch.object(worker, "infer", return_value={"choices": [{"text": "world"}]})
+    def test_observes_queue_to_result_time_after_ack(self, infer):
+        client = MagicMock()
+        payload = json.dumps({"job_id": "abc", "prompt": "hello", "queued_at": 100.0})
+        with patch.object(worker.time, "time", return_value=108.0), patch.object(worker.JOB_DURATION, "labels") as duration:
+            worker.process_job(client, payload)
+        client.pipeline.return_value.__enter__.return_value.execute.assert_called_once()
+        duration.assert_called_once_with("done")
+        duration.return_value.observe.assert_called_once_with(8.0)
+
+    @patch.object(worker, "infer", return_value={"choices": [{"text": "world"}]})
+    def test_failed_redis_ack_does_not_count_completion(self, infer):
+        client = MagicMock()
+        client.pipeline.return_value.__enter__.return_value.execute.side_effect = redis.RedisError("write failed")
+        payload = json.dumps({"job_id": "abc", "prompt": "hello", "queued_at": 100.0})
+        with patch.object(worker.JOBS, "labels") as jobs, patch.object(worker.JOB_DURATION, "labels") as duration:
+            with self.assertRaises(redis.RedisError):
+                worker.process_job(client, payload)
+        jobs.assert_not_called()
+        duration.assert_not_called()
+
     def test_quarantines_malformed_job(self):
         client = MagicMock()
         client.rpoplpush.return_value = None
@@ -119,12 +151,15 @@ class WorkerTests(unittest.TestCase):
 
 
 class DashboardTests(unittest.TestCase):
-    def test_dashboard_has_twelve_distinct_prometheus_panels(self):
+    def test_dashboard_has_seventeen_distinct_prometheus_panels(self):
         dashboard = json.loads((Path(__file__).resolve().parents[1] / "monitoring/dashboard.json").read_text())
         panels = dashboard["panels"]
-        self.assertEqual(len(panels), 12)
-        self.assertEqual(len({panel["id"] for panel in panels}), 12)
+        self.assertEqual(len(panels), 17)
+        self.assertEqual(len({panel["id"] for panel in panels}), 17)
         self.assertTrue(all(panel["datasource"]["uid"] == "${DS_PROMETHEUS}" for panel in panels))
+        expressions = [target["expr"] for panel in panels for target in panel["targets"]]
+        self.assertTrue(any("gateway_http_requests_total" in expression for expression in expressions))
+        self.assertTrue(any("inference_job_duration_seconds_bucket" in expression for expression in expressions))
 
 
 if __name__ == "__main__":
