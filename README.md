@@ -2,6 +2,8 @@
 
 An asynchronous inference example: the gateway accepts a prompt and returns a job ID, Redis buffers it, a CPU worker sends it to vLLM, and the result can be polled. KEDA watches both queued and in-flight jobs to scale the worker and GPU-backed vLLM Deployment from zero. A **separately configured** Kubernetes node autoscaler must provision and retire GPU nodes. This repository has not been benchmarked on GKE; timings and cost estimates from other projects are not measurements of this implementation.
 
+Maintainers: [project architecture and verification rules](CLAUDE.md).
+
 ```mermaid
 graph TD
 	U["User"] --> G["FastAPI gateway :8080"]
