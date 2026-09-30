@@ -6,7 +6,7 @@ This is the DrOSAlchemist queue-driven GPU inference example. Keep the implement
 
 - `gateway.py`: FastAPI accepts a nonempty prompt at `POST /generate`, stores a job in Redis, and returns HTTP 202 with a `job_id`. `GET /result/{job_id}` polls for `pending`, `done`, or `error`; `GET /health` checks Redis.
 - `worker.py`: moves jobs from `inference-jobs` to `inference-processing`, calls vLLM's `/v1/completions`, stores results for 300 seconds, and acknowledges work. Failed inference returns an error result. A failed Redis write leaves the item in the processing list for recovery.
-- `manifests.yaml`: deploys the always-on gateway, Redis with an AOF-backed PVC, Redis exporter, model-cache PVC, and KEDA-scaled CPU worker and GPU vLLM pod. The GKE node pool is **not** created by Kubernetes manifests.
+- `k8s/`: the Kustomize base deploys the always-on gateway, Redis with an AOF-backed PVC, Redis exporter, model-cache PVC, and KEDA-scaled CPU worker and GPU vLLM pod. Render it with `kubectl kustomize k8s/` and apply it with `kubectl apply -k k8s/`. The GKE node pool is **not** created by Kubernetes manifests.
 - `monitoring/`: Prometheus values and a 12-panel Grafana dashboard. The NVIDIA DCGM exporter is opt-in; see the README before installing one on GKE, which may already collect DCGM metrics.
 - `scripts/`: guarded GKE deployment/teardown and an event/log/queue-based cold-warm-full-zero capture. Raw captures under `data/` are ignored by Git.
 

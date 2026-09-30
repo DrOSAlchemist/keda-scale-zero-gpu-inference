@@ -1,0 +1,14 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: vllm-autoscaler}
+spec:
+  scaleTargetRef: {name: vllm}
+  pollingInterval: 15
+  cooldownPeriod: 300
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  triggers:
+    - type: redis
+      metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-jobs, listLength: "5"}
+    - type: redis
+      metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-processing, listLength: "1"}

@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: inference-worker}
+spec:
+  replicas: 0
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: inference-worker}}
+  template:
+    metadata: {labels: {app: inference-worker}}
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/your-org/scale-zero-inference:latest
+          command: ["python", "-u", "worker.py"]
+          env:
+            - {name: REDIS_URL, value: "redis://redis:6379"}
+            - {name: VLLM_URL, value: "http://vllm:8000/v1/completions"}
+            - {name: MODEL_ID, value: "Qwen/Qwen2.5-1.5B-Instruct"}
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {memory: 1Gi}

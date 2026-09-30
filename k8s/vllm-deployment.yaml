@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: vllm}
+spec:
+  replicas: 0
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: vllm}}
+  template:
+    metadata: {labels: {app: vllm}}
+    spec:
+      tolerations:
+        - {key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.10.2
+          args: ["--model", "Qwen/Qwen2.5-1.5B-Instruct", "--max-model-len", "4096", "--gpu-memory-utilization", "0.8"]
+          env: [{name: HF_HOME, value: /models}]
+          ports: [{containerPort: 8000}]
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+          resources:
+            requests: {cpu: "2", memory: 8Gi, nvidia.com/gpu: "1"}
+            limits: {memory: 16Gi, nvidia.com/gpu: "1"}
+          volumeMounts: [{name: model-cache, mountPath: /models}]
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim: {claimName: model-cache}

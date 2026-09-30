@@ -56,7 +56,7 @@ helm repo add kedacore https://kedacore.github.io/charts --force-update
 helm repo update
 helm upgrade --install keda kedacore/keda --namespace keda --create-namespace --wait
 kubectl create namespace llm-inference --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n llm-inference -f manifests.yaml
+kubectl apply -k k8s/
 kubectl set image -n llm-inference deployment/gateway "gateway=$IMAGE"
 kubectl set image -n llm-inference deployment/inference-worker "worker=$IMAGE"
 if [[ -n ${DISK_IMAGE:-} ]]; then

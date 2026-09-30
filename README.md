@@ -51,7 +51,7 @@ curl http://localhost:8080/result/JOB_ID
 
 ## Kubernetes / GKE
 
-The manifest assumes an existing GPU-capable cluster with a default dynamic StorageClass, NVIDIA GPU drivers/device plugin, and KEDA installed. It creates one persistent Redis pod, a gateway, a CPU worker, a GPU vLLM pod, a Redis exporter, two PVCs, and two ScaledObjects in the **`llm-inference` namespace**. The CPU control plane, Redis, and persistent disks remain billed while GPU nodes are at zero. The model cache PVC is populated by vLLM on first start; it survives pod and node churn, but the first run still downloads the weights. Keep GPU nodes and zonal volumes in a compatible zone.
+The `k8s/` base assumes an existing GPU-capable cluster with a default dynamic StorageClass, NVIDIA GPU drivers/device plugin, and KEDA installed. Its Kustomize entry point creates the **`llm-inference` namespace**, a persistent Redis pod, gateway, CPU worker, GPU vLLM pod, Redis exporter, two PVCs, and two ScaledObjects. The CPU control plane, Redis, and persistent disks remain billed while GPU nodes are at zero. The model cache PVC is populated by vLLM on first start; it survives pod and node churn, but the first run still downloads the weights. Keep GPU nodes and zonal volumes in a compatible zone.
 
 For a GKE example, first verify GPU quota, regional availability, cluster costs, storage provisioning, and permission to create Spot nodes. Use a CPU pool for KEDA, Redis and the gateway, plus an autoscaled T4 pool with minimum size zero:
 
@@ -92,7 +92,7 @@ Build and publish the application image, replace `ghcr.io/your-org/scale-zero-in
 ```bash
 docker build -t ghcr.io/YOUR_ORG/scale-zero-inference:YOUR_TAG .
 docker push ghcr.io/YOUR_ORG/scale-zero-inference:YOUR_TAG
-kubectl apply -n llm-inference -f manifests.yaml
+kubectl apply -k k8s/
 kubectl rollout status -n llm-inference deployment/redis
 kubectl rollout status -n llm-inference deployment/gateway
 kubectl port-forward -n llm-inference service/gateway 8080:8080

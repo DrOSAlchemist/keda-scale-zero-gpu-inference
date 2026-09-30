@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: llm-inference
+resources:
+  - namespace.yaml
+  - redis.yaml
+  - gateway-deployment.yaml
+  - gateway-service.yaml
+  - worker-deployment.yaml
+  - worker-keda-scaledobject.yaml
+  - vllm-pvc.yaml
+  - vllm-deployment.yaml
+  - vllm-service.yaml
+  - vllm-keda-scaledobject.yaml
