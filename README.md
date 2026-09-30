@@ -36,7 +36,7 @@ docker run -d --name inference-redis -p 6379:6379 redis:7.4 --appendonly yes
 In a second terminal, run the worker with a reachable inference endpoint:
 
 ```bash
-REDIS_URL=redis://localhost:6379 VLLM_URL=http://localhost:8000/v1/completions .venv/bin/python worker.py
+REDIS_URL=redis://localhost:6379 VLLM_URL=http://localhost:8000/v1/completions .venv/bin/python worker/worker.py
 ```
 
 In a third terminal:
@@ -87,18 +87,24 @@ kubectl wait -n llm-inference --for=condition=complete job/model-cache-seed --ti
 
 The Job needs network access to Hugging Face and a writable 10 Gi volume. If it fails, inspect `kubectl logs -n llm-inference job/model-cache-seed`; do not begin a cold-start comparison until it succeeds. You can omit the Job to include the download in the initial cold-start measurement.
 
-Build and publish the application image, replace `ghcr.io/your-org/scale-zero-inference:latest` in both Deployments with that accessible image, then apply:
+Build and publish two application images, replace the gateway and worker image placeholders in their respective Deployments with accessible tags, then apply. The guarded GKE script above does this automatically with Artifact Registry:
 
 ```bash
-docker build -t ghcr.io/YOUR_ORG/scale-zero-inference:YOUR_TAG .
-docker push ghcr.io/YOUR_ORG/scale-zero-inference:YOUR_TAG
+docker build -t ghcr.io/YOUR_ORG/scale-zero-gateway:YOUR_TAG .
+docker build -t ghcr.io/YOUR_ORG/scale-zero-worker:YOUR_TAG worker/
+docker push ghcr.io/YOUR_ORG/scale-zero-gateway:YOUR_TAG
+docker push ghcr.io/YOUR_ORG/scale-zero-worker:YOUR_TAG
 kubectl apply -k k8s/
+kubectl set image -n llm-inference deployment/gateway gateway=ghcr.io/YOUR_ORG/scale-zero-gateway:YOUR_TAG
+kubectl set image -n llm-inference deployment/inference-worker worker=ghcr.io/YOUR_ORG/scale-zero-worker:YOUR_TAG
 kubectl rollout status -n llm-inference deployment/redis
 kubectl rollout status -n llm-inference deployment/gateway
 kubectl port-forward -n llm-inference service/gateway 8080:8080
 ```
 
 The example is limited to one CPU worker and one vLLM pod because the shared processing-list recovery assumes one worker replica. The worker overlaps two requests so vLLM can batch them; scaling to two worker pods would require per-worker recovery ownership or a consumer-group queue. The KEDA queue length of 5 is an HPA scaling target, not a minimum activation threshold: one queued request still wakes the system. The processing-list trigger stays at 1 to keep an in-flight job active. `maxReplicaCount: 1` remains intentional, not a capacity benchmark. The gateway does not impose queue-depth limits, so add admission controls before exposing it to untrusted traffic.
+
+The gateway and worker have separate Docker build contexts and dependencies. The gateway image starts Uvicorn; the worker image starts `python -u worker.py` so queue and inference logs are unbuffered.
 
 ## Exercise the Scale Cycle
 

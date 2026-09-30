@@ -8,7 +8,7 @@ import redis
 from fastapi.testclient import TestClient
 
 import gateway
-import worker
+from worker import worker
 
 
 class GatewayTests(unittest.TestCase):

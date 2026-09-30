@@ -10,8 +10,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: ghcr.io/your-org/scale-zero-inference:latest
-          command: ["python", "-u", "worker.py"]
+          image: ghcr.io/your-org/scale-zero-worker:latest
           env:
             - {name: REDIS_URL, value: "redis://redis:6379"}
             - {name: VLLM_URL, value: "http://vllm:8000/v1/completions"}
