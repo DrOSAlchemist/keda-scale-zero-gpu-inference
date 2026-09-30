@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: gpu-inference-worker}
+spec:
+  replicas: 0
+  selector: {matchLabels: {app: gpu-inference-worker}}
+  template:
+    metadata: {labels: {app: gpu-inference-worker}}
+    spec:
+      containers:
+      - name: worker
+        image: ghcr.io/your-org/redis-vllm-worker:latest
+        env:
+        - {name: REDIS_URL, value: redis://redis.default.svc.cluster.local:6379}
+        - {name: VLLM_URL, value: http://vllm.llm-serving.svc.cluster.local:8000/v1/completions}
+        resources:
+          requests: {cpu: "2", memory: 12Gi, nvidia.com/gpu: "1"}
+          limits: {cpu: "4", memory: 16Gi, nvidia.com/gpu: "1"}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: {name: gpu-inference-worker}
+spec:
+  scaleTargetRef: {name: gpu-inference-worker}
+  pollingInterval: 15
+  cooldownPeriod: 300
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  triggers:
+  - type: redis
+    metadata:
+      address: redis.default.svc.cluster.local:6379
+      listName: inference-jobs
+      listLength: "1"
