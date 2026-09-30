@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""Enqueue a prompt for the scale-to-zero inference worker."""
+"""Submit a prompt to the inference gateway and print its job ID."""
 import json
 import os
-import socket
+from urllib.request import Request, urlopen
 
 
-def redis_command(*parts: str) -> bytes:
-    return ("*" + str(len(parts)) + "\r\n" + "".join(f"${len(p.encode())}\r\n{p}\r\n" for p in parts)).encode()
-
-
-url = os.environ.get("REDIS_URL", "redis://localhost:6379").removeprefix("redis://")
-host, _, port = url.partition(":")
-payload = json.dumps({"prompt": "Explain scale-to-zero GPU inference.", "max_tokens": 80})
-with socket.create_connection((host, int(port or 6379)), timeout=5) as connection:
-    connection.sendall(redis_command("LPUSH", "inference-jobs", payload))
-    print(connection.recv(128).decode().strip())
+if __name__ == "__main__":
+    gateway = os.environ.get("GATEWAY_URL", "http://localhost:8080")
+    payload = json.dumps({"prompt": "Explain scale-to-zero GPU inference.", "max_tokens": 80})
+    request = Request(f"{gateway}/generate", data=payload.encode(), headers={"Content-Type": "application/json"})
+    with urlopen(request, timeout=10) as response:
+        print(json.loads(response.read())["job_id"])
