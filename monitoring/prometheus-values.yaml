@@ -1,6 +1,11 @@
+grafana:
+  sidecar:
+    dashboards:
+      enabled: true
 prometheus:
   prometheusSpec:
     retention: 24h
+    scrapeInterval: 15s
     additionalScrapeConfigs:
       - job_name: redis-queue
         static_configs:

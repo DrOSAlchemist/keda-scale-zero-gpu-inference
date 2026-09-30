@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-cache-seed
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: download
+          image: python:3.12-slim
+          command: ["sh", "-c"]
+          args:
+            - >-
+              pip install --no-cache-dir huggingface_hub==0.36.0 &&
+              python -c 'from huggingface_hub import snapshot_download;
+              snapshot_download("Qwen/Qwen2.5-1.5B-Instruct")'
+          env:
+            - {name: HF_HOME, value: /models}
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {memory: 1Gi}
+          volumeMounts:
+            - {name: model-cache, mountPath: /models}
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim: {claimName: model-cache}

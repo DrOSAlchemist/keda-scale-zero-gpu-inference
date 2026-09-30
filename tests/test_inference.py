@@ -1,7 +1,10 @@
 import json
+import threading
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import redis
 from fastapi.testclient import TestClient
 
 import gateway
@@ -33,6 +36,48 @@ class GatewayTests(unittest.TestCase):
 
 
 class WorkerTests(unittest.TestCase):
+    def test_worker_surfaces_failed_result_write_while_queue_is_empty(self):
+        client = MagicMock()
+        client.rpoplpush.return_value = None
+        finished = threading.Event()
+        payload = json.dumps({"job_id": "one", "prompt": "hello"})
+        reads = iter([payload, None])
+
+        def pop(*args, **kwargs):
+            value = next(reads)
+            if value is None:
+                self.assertTrue(finished.wait(timeout=2))
+            return value
+
+        def failed_write(*args, **kwargs):
+            finished.set()
+            raise redis.RedisError("result write failed")
+
+        client.brpoplpush.side_effect = pop
+        with patch.object(worker, "process_job", side_effect=failed_write):
+            with self.assertRaisesRegex(redis.RedisError, "result write failed"):
+                worker.run(client)
+
+    def test_two_requests_can_reach_vllm_together(self):
+        client = MagicMock()
+        client.rpoplpush.return_value = None
+        client.brpoplpush.side_effect = [
+            json.dumps({"job_id": "one", "prompt": "first"}),
+            json.dumps({"job_id": "two", "prompt": "second"}),
+            KeyboardInterrupt,
+        ]
+        rendezvous = threading.Barrier(2)
+
+        def complete(job):
+            rendezvous.wait(timeout=2)
+            return {"choices": [{"text": job["prompt"]}]}
+
+        with patch.object(worker, "infer", side_effect=complete) as infer:
+            with self.assertRaises(KeyboardInterrupt):
+                worker.run(client)
+        self.assertEqual(infer.call_count, 2)
+        self.assertEqual(client.pipeline.return_value.__enter__.return_value.setex.call_count, 2)
+
     @patch.object(worker, "infer", return_value={"choices": [{"text": "world"}]})
     def test_acks_completed_job(self, infer):
         client = MagicMock()
@@ -71,6 +116,15 @@ class WorkerTests(unittest.TestCase):
         with self.assertRaises(KeyboardInterrupt):
             worker.run(client)
         client.rpoplpush.assert_any_call(worker.PROCESSING, worker.QUEUE)
+
+
+class DashboardTests(unittest.TestCase):
+    def test_dashboard_has_twelve_distinct_prometheus_panels(self):
+        dashboard = json.loads((Path(__file__).resolve().parents[1] / "monitoring/dashboard.json").read_text())
+        panels = dashboard["panels"]
+        self.assertEqual(len(panels), 12)
+        self.assertEqual(len({panel["id"] for panel in panels}), 12)
+        self.assertTrue(all(panel["datasource"]["uid"] == "${DS_PROMETHEUS}" for panel in panels))
 
 
 if __name__ == "__main__":

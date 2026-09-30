@@ -145,7 +145,7 @@ spec:
       containers:
         - name: exporter
           image: oliver006/redis_exporter:v1.66.0
-          args: ["--redis.addr=redis://redis:6379", "--check-keys=inference-jobs,inference-processing"]
+          args: ["--redis.addr=redis://redis:6379", "--check-single-keys=inference-jobs,inference-processing"]
           ports: [{containerPort: 9121}]
           resources:
             requests: {cpu: 50m, memory: 64Mi}
@@ -169,7 +169,7 @@ spec:
   maxReplicaCount: 1
   triggers:
     - type: redis
-      metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-jobs, listLength: "1"}
+      metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-jobs, listLength: "5"}
     - type: redis
       metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-processing, listLength: "1"}
 ---
@@ -184,6 +184,6 @@ spec:
   maxReplicaCount: 1
   triggers:
     - type: redis
-      metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-jobs, listLength: "1"}
+      metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-jobs, listLength: "5"}
     - type: redis
       metadata: {address: "redis.llm-inference.svc.cluster.local:6379", listName: inference-processing, listLength: "1"}

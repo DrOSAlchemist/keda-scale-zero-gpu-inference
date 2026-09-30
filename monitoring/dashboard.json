@@ -1,0 +1,78 @@
+{
+  "uid": "scale-zero-inference",
+  "title": "Inference / scale-to-zero lifecycle",
+  "schemaVersion": 40,
+  "version": 1,
+  "refresh": "15s",
+  "time": {"from": "now-1h", "to": "now"},
+  "tags": ["inference", "keda", "gpu"],
+  "templating": {"list": [{"name": "DS_PROMETHEUS", "type": "datasource", "query": "prometheus", "current": {}, "hide": 2}]},
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Waiting jobs / KEDA target 5",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "redis_key_size{key=\"inference-jobs\"} or vector(0)", "legendFormat": "queued", "refId": "A"}, {"expr": "vector(5)", "legendFormat": "target", "refId": "B"}]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "In-flight jobs",
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "redis_key_size{key=\"inference-processing\"} or vector(0)", "legendFormat": "processing", "refId": "A"}]
+    },
+    {
+      "id": 3, "type": "timeseries", "title": "Worker / vLLM replicas",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "kube_deployment_status_replicas{namespace=\"llm-inference\",deployment=\"inference-worker\"} or vector(0)", "legendFormat": "worker", "refId": "A"}, {"expr": "kube_deployment_status_replicas{namespace=\"llm-inference\",deployment=\"vllm\"} or vector(0)", "legendFormat": "vLLM", "refId": "B"}]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Allocated GPU nodes",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "sum(kube_node_status_capacity{resource=\"nvidia_com_gpu\"}) or vector(0)", "legendFormat": "GPUs", "refId": "A"}]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "GPU utilization / DCGM required",
+      "gridPos": {"x": 0, "y": 7, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}},
+      "targets": [{"expr": "DCGM_FI_DEV_GPU_UTIL", "legendFormat": "GPU {{gpu}}", "refId": "A"}]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "GPU power / DCGM required",
+      "gridPos": {"x": 6, "y": 7, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "watt"}},
+      "targets": [{"expr": "DCGM_FI_DEV_POWER_USAGE", "legendFormat": "GPU {{gpu}}", "refId": "A"}]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "GPU framebuffer / DCGM required",
+      "gridPos": {"x": 12, "y": 7, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "decmbytes"}},
+      "targets": [{"expr": "DCGM_FI_DEV_FB_USED", "legendFormat": "GPU {{gpu}}", "refId": "A"}]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "GPU temperature / DCGM required",
+      "gridPos": {"x": 18, "y": 7, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "celsius"}},
+      "targets": [{"expr": "DCGM_FI_DEV_GPU_TEMP", "legendFormat": "GPU {{gpu}}", "refId": "A"}]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Completed requests / second",
+      "gridPos": {"x": 0, "y": 14, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}},
+      "targets": [{"expr": "sum(rate(vllm:request_success_total[1m]))", "legendFormat": "completions", "refId": "A"}]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Prompt tokens / second",
+      "gridPos": {"x": 6, "y": 14, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "sum(rate(vllm:prompt_tokens_total[1m]))", "legendFormat": "prompt", "refId": "A"}]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "Generated tokens / second",
+      "gridPos": {"x": 12, "y": 14, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "sum(rate(vllm:generation_tokens_total[1m]))", "legendFormat": "generated", "refId": "A"}]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "Time to first token / p95",
+      "gridPos": {"x": 18, "y": 14, "w": 6, "h": 7}, "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A"}]
+    }
+  ]
+}
